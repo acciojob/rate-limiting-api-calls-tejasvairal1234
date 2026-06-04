@@ -1,64 +1,55 @@
-//your JS code here. If required.
-const btn = document.getElementById("fetchBtn");
-const clickCountEl = document.getElementById("clickCount");
-const results = document.getElementById("results");
+const fetchButton = document.getElementById("fetch-button");
+const resultsDiv = document.getElementById("results");
+const clickCountSpan = document.getElementById("click-count");
 
 let clickCount = 0;
-let requestsInWindow = 0;
-let queue = [];
-let resetTimer = null;
+let apiCallTimestamps = [];
+let resetTimer;
 
-// Fetch data from API
-function fetchData() {
-  return fetch("https://jsonplaceholder.typicode.com/todos/1")
-    .then((response) => response.json())
-    .then((data) => {
-      const div = document.createElement("div");
-
-      div.innerHTML = `
-        <p>ID: ${data.id}</p>
-        <p>Title: ${data.title}</p>
-        <p>Completed: ${data.completed}</p>
-        <hr>
-      `;
-
-      results.appendChild(div);
-    });
-}
-
-// Process queued requests after 10 seconds
-function processQueue() {
-  const pending = [...queue];
-  queue = [];
-  requestsInWindow = 0;
-
-  pending.forEach(() => {
-    requestsInWindow++;
-    fetchData();
-  });
-}
-
-btn.addEventListener("click", () => {
+fetchButton.addEventListener("click", async () => {
+  // Update click count
   clickCount++;
-  clickCountEl.textContent = clickCount;
+  clickCountSpan.textContent = clickCount;
 
-  // Reset click count after 10 seconds
+  // Reset count after 10 seconds from latest click
   clearTimeout(resetTimer);
-
   resetTimer = setTimeout(() => {
     clickCount = 0;
-    clickCountEl.textContent = 0;
+    clickCountSpan.textContent = "0";
   }, 10000);
 
-  if (requestsInWindow < 5) {
-    requestsInWindow++;
-    fetchData();
+  const now = Date.now();
 
-    // Start 10-second window on first request
-    if (requestsInWindow === 1) {
-      setTimeout(processQueue, 10000);
-    }
-  } else {
-    queue.push(true);
+  // Keep only calls made in the last 10 seconds
+  apiCallTimestamps = apiCallTimestamps.filter(
+    (timestamp) => now - timestamp < 10000
+  );
+
+  // Rate limit: max 5 calls in 10 seconds
+  if (apiCallTimestamps.length >= 5) {
+    alert("Too many API calls. Please wait and try again.");
+    return;
+  }
+
+  apiCallTimestamps.push(now);
+
+  try {
+    const response = await fetch(
+      "https://jsonplaceholder.typicode.com/todos/1"
+    );
+
+    const data = await response.json();
+
+    resultsDiv.innerHTML += `
+      <div>
+        <p><strong>ID:</strong> ${data.id}</p>
+        <p><strong>Title:</strong> ${data.title}</p>
+        <p><strong>Completed:</strong> ${data.completed}</p>
+        <hr>
+      </div>
+    `;
+  } catch (error) {
+    console.error(error);
+    resultsDiv.innerHTML += "<p>Error fetching data.</p>";
   }
 });
